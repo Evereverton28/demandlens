@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · DemandLens</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="wordmark" href="{{ url_for('views.overview') }}">Demand<span>Lens</span></a>
+    <p class="tagline">Demand forecasting and stock risk for small retailers</p>
+    <nav aria-label="Main">
+      <ul class="nav">
+        {% for name, rule, label in pages %}
+          {% if name == 'model' %}<li class="sep" role="separator"></li>{% endif %}
+          <li><a href="{{ url_for('views.' + name) }}" {% if page == name %}aria-current="page"{% endif %}>
+            <span>{{ label }}</span><span class="count" data-count="{{ name }}"></span></a></li>
+        {% endfor %}
+      </ul>
+    </nav>
+    <div class="side-foot">
+      <div class="run-status" id="run-status" aria-live="polite">Checking the latest analysis…</div>
+      <button class="btn side" id="run-btn" type="button">Run analysis</button>
+      <div class="user-line">
+        <span>{{ g.user['username'] }}</span>
+        <form method="post" action="{{ url_for('auth.logout') }}"><button type="submit">Sign out</button></form>
+      </div>
+    </div>
+  </aside>
+  <main class="main" id="main">
+    <div id="notices"></div>
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

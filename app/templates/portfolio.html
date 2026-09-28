@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Portfolio{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1 id="headline">Portfolio</h1>
+  <p class="lede" id="lede">Which products carry the business, how predictable they are, and which are rising or fading.</p>
+</header>
+<div id="body"><p class="loading">Loading…</p></div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/portfolio.js') }}"></script>{% endblock %}

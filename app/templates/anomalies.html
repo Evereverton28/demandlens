@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block title %}Unusual sales{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>Unusual sales</h1>
+  <p class="lede">Weeks where sales were far from what the model expected, and single sales far larger than usual.
+    Confirm the ones that were real problems and dismiss the ones you can explain.</p>
+</header>
+<div class="tabs" role="tablist" id="tabs">
+  <button role="tab" data-status="open" aria-selected="true">To review</button>
+  <button role="tab" data-status="confirmed" aria-selected="false">Confirmed</button>
+  <button role="tab" data-status="dismissed" aria-selected="false">Dismissed</button>
+</div>
+<div class="filters">
+  <label class="field">Kind <select id="f-kind"><option value="">All</option><option value="weekly_sales">Unusual week</option><option value="transaction">Unusually large sale</option></select></label>
+  <label class="field">Severity <select id="f-sev"><option value="">All</option><option value="high">High</option><option value="moderate">Moderate</option></select></label>
+</div>
+<div class="panel"><div class="table-wrap" id="table"><p class="loading">Loading…</p></div></div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/anomalies.js') }}"></script>{% endblock %}

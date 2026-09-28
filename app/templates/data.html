@@ -1,0 +1,119 @@
+{% extends "base.html" %}{% block title %}Data{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>Data</h1>
+  <p class="lede">Record sales and deliveries, manage products, and import sales history. Entries are never edited
+    after they are saved: correct a mistake with an adjustment or a stock count, so the history stays true.</p>
+</header>
+<div class="tabs" role="tablist" id="tabs">
+  <button role="tab" data-tab="record" aria-selected="true">Record an entry</button>
+  <button role="tab" data-tab="products" aria-selected="false">Products</button>
+  <button role="tab" data-tab="import" aria-selected="false">Import</button>
+  <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
+</div>
+
+<section data-panel="record">
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Record an entry</h2>
+      <p class="muted small">Sales, returns, deliveries, corrections and stock counts all go into the same ledger.</p>
+      <form id="mv-form">
+        <div class="form-grid">
+          <label class="field" style="grid-column: 1 / -1">Product
+            <input id="mv-product-search" list="mv-product-list" placeholder="Start typing a name or code" required autocomplete="off">
+            <datalist id="mv-product-list"></datalist>
+          </label>
+          <label class="field">Entry type
+            <select name="type" required>
+              <option value="SALE">Sale</option><option value="RESTOCK">Delivery received</option>
+              <option value="RETURN">Customer return</option><option value="ADJUSTMENT">Adjustment (+ or −)</option>
+              <option value="STOCKTAKE">Stock count</option>
+            </select></label>
+          <label class="field">Quantity <input name="quantity" type="number" step="any" required></label>
+          <label class="field">Unit price <input name="unit_price" type="number" step="any" min="0" placeholder="Product default"></label>
+          <label class="field">Date and time <input name="occurred_at" type="datetime-local"></label>
+          <label class="field" style="grid-column: 1 / -1">Note <input name="note" maxlength="200" placeholder="Optional, for example damaged in transit"></label>
+        </div>
+        <div class="form-actions"><button class="btn" type="submit">Save entry</button><span class="form-msg" id="mv-msg" aria-live="polite"></span></div>
+      </form>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Latest entries</h2></div>
+      <div class="table-wrap" id="mv-table"><p class="loading">Loading…</p></div>
+    </div>
+  </div>
+</section>
+
+<section data-panel="products" hidden>
+  <div class="panel" style="margin-bottom:20px">
+    <h2>Add a product</h2>
+    <form id="p-form">
+      <div class="form-grid">
+        <label class="field">Code (SKU) <input name="sku" required></label>
+        <label class="field">Name <input name="name" required></label>
+        <label class="field">Category <input name="category" list="cat-list"><datalist id="cat-list"></datalist></label>
+        <label class="field">Cost price <input name="cost_price" type="number" step="any" min="0"></label>
+        <label class="field">Selling price <input name="selling_price" type="number" step="any" min="0"></label>
+        <label class="field">Restock lead time (days) <input name="lead_time_days" type="number" min="0" placeholder="Default"></label>
+        <label class="field">Opening stock <input name="opening_stock" type="number" step="any" min="0"></label>
+      </div>
+      <div class="form-actions"><button class="btn" type="submit">Add product</button><span class="form-msg" id="p-msg" aria-live="polite"></span></div>
+    </form>
+  </div>
+  <div class="panel">
+    <div class="filters">
+      <label class="field">Search <input type="search" id="p-search" placeholder="Name or code"></label>
+      <label class="field">Show <select id="p-archived"><option value="0">Active products</option><option value="1">Archived products</option></select></label>
+    </div>
+    <div class="table-wrap" id="p-table"><p class="loading">Loading…</p></div>
+    <div class="pager" id="p-pager"></div>
+  </div>
+</section>
+
+<section data-panel="import" hidden>
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Import sales history</h2>
+      <p class="small muted">Use the DemandLens template for your own records, or the UCI Online Retail II file.
+        <a href="/api/template.csv">Download the template</a>.</p>
+      <form id="imp-form">
+        <div class="form-grid">
+          <label class="field" style="grid-column: 1 / -1">File (.csv or .xlsx) <input name="file" type="file" accept=".csv,.xlsx,.xls" required></label>
+          <label class="field">Format
+            <select name="format"><option value="generic">DemandLens template</option><option value="online_retail">UCI Online Retail II</option></select></label>
+          <label class="field" style="align-self:end"><span><input type="checkbox" name="synthetic" value="1"> This is synthetic test data</span></label>
+        </div>
+        <div class="form-actions"><button class="btn" type="submit">Import file</button><span class="form-msg" id="imp-msg" aria-live="polite"></span></div>
+      </form>
+      <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
+      <h3>Datasets without stock levels</h3>
+      <p class="small muted">Sales files such as Online Retail II say what sold, not what was on the shelf. To see the stock risk
+        features working, you can add a simulated stock count for each product. It is labelled as simulated everywhere it appears.</p>
+      <button class="btn quiet" id="scenario-btn" type="button">Add simulated stock levels</button>
+      <span class="form-msg" id="scenario-msg" aria-live="polite"></span>
+    </div>
+    <div class="panel">
+      <h2>Import history</h2>
+      <div id="imp-table" class="table-wrap"><p class="loading">Loading…</p></div>
+    </div>
+  </div>
+</section>
+
+<section data-panel="settings" hidden>
+  <div class="panel" style="max-width:760px">
+    <h2>Settings</h2>
+    <p class="small muted">These change the stock risk calculations and recommendations. Run the analysis again after saving.</p>
+    <form id="s-form">
+      <div class="form-grid">
+        <label class="field">Default restock lead time (days) <input name="default_lead_time_days" type="number" min="0" required></label>
+        <label class="field">Days between stock reviews <input name="review_period_days" type="number" min="1" required></label>
+        <label class="field">Overstock after (weeks of demand) <input name="overstock_weeks" type="number" min="1" required></label>
+        <label class="field">Public holiday calendar <input name="holiday_country" maxlength="2" placeholder="KE"></label>
+        <label class="field">Currency <input name="currency" maxlength="3" placeholder="KES"></label>
+      </div>
+      <div class="form-actions"><button class="btn" type="submit">Save settings</button><span class="form-msg" id="s-msg" aria-live="polite"></span></div>
+    </form>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/data.js') }}"></script>{% endblock %}

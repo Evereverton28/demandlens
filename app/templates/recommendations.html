@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Recommendations{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1 id="headline">Recommendations</h1>
+  <p class="lede">Each suggestion comes from a stated rule applied to the forecasts, trends and stock levels, and says why it was made.</p>
+</header>
+<div class="tabs" role="tablist" id="tabs"></div>
+<div class="panel"><div class="table-wrap" id="table"><p class="loading">Loading…</p></div></div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/recommendations.js') }}"></script>{% endblock %}

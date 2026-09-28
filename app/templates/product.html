@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Product{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('views.products') }}">All products</a>
+<header class="page-head">
+  <h1 id="p-name">Product</h1>
+  <p class="lede" id="p-lede"></p>
+</header>
+<div id="body" data-product="{{ product_id }}"><p class="loading">Loading…</p></div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/product.js') }}"></script>{% endblock %}

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ 'Create an account' if mode == 'signup' else 'Sign in' }} · DemandLens</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<div class="auth-wrap">
+  <section class="auth-intro">
+    <div class="wordmark">Demand<span>Lens</span></div>
+    <h1>Know what to restock before it runs out.</h1>
+    <p>DemandLens reads your sales history, forecasts demand for every product, and tells you
+       what to reorder, what to cut back and what looks unusual, with the reasons behind each suggestion.</p>
+  </section>
+  <section class="auth-form">
+    {% with messages = get_flashed_messages() %}
+      {% for m in messages %}<div class="notice error" role="alert">{{ m }}</div>{% endfor %}
+    {% endwith %}
+    {% if mode == 'signup' %}
+      <h2>Create an account</h2>
+      <form method="post">
+        <label class="field">Username <input name="username" required autocomplete="username"></label>
+        <label class="field">Email <input name="email" type="email" required autocomplete="email"></label>
+        <label class="field">Password <input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+        <label class="field">Confirm password <input name="confirm" type="password" required minlength="8" autocomplete="new-password"></label>
+        <button class="btn" type="submit">Create account</button>
+        <p class="small muted">Already registered? <a href="{{ url_for('auth.login') }}">Sign in</a></p>
+      </form>
+    {% else %}
+      <h2>Sign in</h2>
+      <form method="post">
+        <label class="field">Username <input name="username" required autocomplete="username" autofocus></label>
+        <label class="field">Password <input name="password" type="password" required autocomplete="current-password"></label>
+        <button class="btn" type="submit">Sign in</button>
+        <p class="small muted">New here? <a href="{{ url_for('auth.signup') }}">Create an account</a></p>
+      </form>
+    {% endif %}
+  </section>
+</div>
+</body>
+</html>

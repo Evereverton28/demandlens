@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Model performance{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1 id="headline">Model performance</h1>
+  <p class="lede" id="lede">How accurate the forecasts were when tested on weeks the model had not seen.</p>
+</header>
+<div id="body"><p class="loading">Loading…</p></div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/model.js') }}"></script>{% endblock %}

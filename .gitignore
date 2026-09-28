@@ -1,0 +1,10 @@
+instance/
+data/*.csv
+data/*.xlsx
+data/cache/
+!data/synthetic_template.csv
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
