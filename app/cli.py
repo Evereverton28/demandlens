@@ -3,6 +3,9 @@
   create-user      create an account
   import-data      import a sales file into a user's ledger
   create-scenario  add simulated stock levels (for datasets without stock data)
+  list-imports     show what has been imported
+  delete-import    remove one import and its data
+  clear-data       empty an account completely
   analyse          run the full analysis
   tune             tune model hyperparameters with time-series cross-validation
   migrate-sims     bring data over from the old SIMS inventory.db
@@ -55,6 +58,44 @@ def register(app):
         from .importer import create_scenario
         conn = connect(db_path())
         click.echo(create_scenario(conn, _user(conn, username), seed))
+
+    @app.cli.command("list-imports")
+    @click.option("--user", "username", required=True)
+    def list_imports_cmd(username):
+        conn = connect(db_path())
+        uid = _user(conn, username)
+        rows = conn.execute("""SELECT b.batch_id, b.file_name, b.imported_at, b.rows_imported,
+                                 (SELECT COUNT(*) FROM stock_movements m WHERE m.batch_id=b.batch_id) AS movements
+                               FROM import_batches b WHERE b.user_id=? ORDER BY b.batch_id""", (uid,)).fetchall()
+        if not rows:
+            click.echo("Nothing has been imported for this user.")
+            return
+        for r in rows:
+            click.echo(f"  [{r['batch_id']}] {r['file_name']}  {r['movements']:,} entries  imported {r['imported_at']}")
+        click.echo("\nRemove one with:  flask --app run delete-import <id> --user " + username)
+
+    @app.cli.command("delete-import")
+    @click.argument("batch_id", type=int)
+    @click.option("--user", "username", required=True)
+    def delete_import_cmd(batch_id, username):
+        from .importer import delete_batch
+        conn = connect(db_path())
+        try:
+            r = delete_batch(conn, _user(conn, username), batch_id)
+        except ValueError as e:
+            raise click.ClickException(str(e))
+        click.echo(f"Removed '{r['file_name']}': {r['movements']:,} entries, {r['products_removed']} products, "
+                   f"{r['runs_cleared']} analysis run(s).")
+
+    @app.cli.command("clear-data")
+    @click.option("--user", "username", required=True)
+    @click.confirmation_option(prompt="This deletes all products, entries, imports and results for this user. Continue?")
+    def clear_data_cmd(username):
+        from .importer import clear_all_data
+        conn = connect(db_path())
+        c = clear_all_data(conn, _user(conn, username))
+        click.echo(f"Cleared {c['products']} products, {c['movements']:,} entries, {c['imports']} imports, "
+                   f"{c['runs']} analysis run(s). The account and its settings remain.")
 
     @app.cli.command("analyse")
     @click.option("--user", "username", required=True)

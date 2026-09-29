@@ -171,3 +171,43 @@ def migrate_sims(db: sqlite3.Connection, sims_path: str | Path) -> dict:
     db.commit()
     old.close()
     return counts
+
+
+def delete_batch(db: sqlite3.Connection, user_id: int, batch_id: int) -> dict:
+    """Remove one import and everything that came with it.
+
+    The batch's movements go with it (the schema cascades), then any product
+    left with no movements at all is removed, and the stored analysis results
+    are cleared because they were computed from data that no longer exists.
+    """
+    batch = db.execute("SELECT * FROM import_batches WHERE batch_id=? AND user_id=?", (batch_id, user_id)).fetchone()
+    if batch is None:
+        raise ValueError("That import was not found.")
+    moved = db.execute("SELECT COUNT(*) FROM stock_movements WHERE batch_id=? AND user_id=?",
+                       (batch_id, user_id)).fetchone()[0]
+    db.execute("DELETE FROM import_batches WHERE batch_id=? AND user_id=?", (batch_id, user_id))
+    orphans = db.execute(
+        """DELETE FROM products WHERE user_id=? AND product_id NOT IN
+           (SELECT DISTINCT product_id FROM stock_movements WHERE user_id=?)""", (user_id, user_id)).rowcount
+    runs = _clear_results(db, user_id)
+    db.commit()
+    return {"file_name": batch["file_name"], "movements": moved, "products_removed": orphans, "runs_cleared": runs}
+
+
+def clear_all_data(db: sqlite3.Connection, user_id: int) -> dict:
+    """Empty this account completely: products, ledger, imports and results. Settings are kept."""
+    counts = {
+        "movements": db.execute("DELETE FROM stock_movements WHERE user_id=?", (user_id,)).rowcount,
+        "products": db.execute("DELETE FROM products WHERE user_id=?", (user_id,)).rowcount,
+        "imports": db.execute("DELETE FROM import_batches WHERE user_id=?", (user_id,)).rowcount,
+    }
+    db.execute("DELETE FROM categories WHERE user_id=?", (user_id,))
+    counts["runs"] = _clear_results(db, user_id)
+    db.commit()
+    return counts
+
+
+def _clear_results(db: sqlite3.Connection, user_id: int) -> int:
+    """Analysis results describe a particular ledger; once it changes they are removed."""
+    db.execute("DELETE FROM anomalies WHERE user_id=?", (user_id,))
+    return db.execute("DELETE FROM model_runs WHERE user_id=?", (user_id,)).rowcount

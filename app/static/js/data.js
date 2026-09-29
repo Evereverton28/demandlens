@@ -108,13 +108,34 @@
   async function loadImports() {
     const rows = await api("/api/imports");
     el("imp-table").innerHTML = table([
-      { label: "Imported", render: r => esc(date(r.imported_at)) },
+      { label: "Imported", cls: "nowrap", render: r => esc(date(r.imported_at)) },
       { label: "File", render: r => esc(r.file_name) + (r.is_synthetic ? " <span class='tag warn'>synthetic</span>" : "") + (r.is_scenario ? " <span class='tag warn'>simulated</span>" : "") },
-      { label: "Rows read", num: true, render: r => num(r.rows_read) },
-      { label: "Imported", num: true, render: r => num(r.rows_imported) },
+      { label: "Entries", num: true, render: r => num(r.rows_imported) },
       { label: "Set aside", num: true, render: r => `<span title="${esc(r.report_json)}">${num(r.rows_rejected)}</span>` },
+      { label: "", render: r => `<button class="btn quiet small" data-remove="${r.batch_id}" data-name="${esc(r.file_name)}">Remove</button>` },
     ], rows, "Nothing imported yet.");
+    el("imp-table").querySelectorAll("[data-remove]").forEach(b => b.addEventListener("click", async () => {
+      if (!confirm(`Remove "${b.dataset.name}"?\n\nIts entries and any product left with no history will be deleted, and stored analysis results will be cleared.`)) return;
+      b.disabled = true;
+      try {
+        const r = await api(`/api/imports/${b.dataset.remove}`, { method: "DELETE" });
+        msg("imp-msg", `Removed ${r.file_name}: ${num(r.movements)} entries and ${num(r.products_removed)} products.`);
+        loadImports(); loadMovements();
+      } catch (err) { msg("imp-msg", err.message, false); b.disabled = false; }
+    }));
   }
+
+  el("clear-btn").addEventListener("click", async () => {
+    const confirmText = el("clear-confirm").value.trim();
+    if (confirmText !== "DELETE") { msg("clear-msg", "Type DELETE in the box to confirm.", false); return; }
+    if (!confirm("Delete every product, entry, import and analysis result in this account?")) return;
+    try {
+      const r = await api("/api/data/clear", { json: { confirm: "DELETE" } });
+      msg("clear-msg", `Deleted ${num(r.products)} products and ${num(r.movements)} entries. Import a new file to start again.`);
+      el("clear-confirm").value = "";
+      loadImports(); loadMovements(); loadProducts();
+    } catch (err) { msg("clear-msg", err.message, false); }
+  });
   async function pollImport(jobId) {
     const j = await api(`/api/jobs/${jobId}`);
     if (j.status === "running") { msg("imp-msg", j.progress || "Working…"); setTimeout(pollImport, 1500, jobId); return; }

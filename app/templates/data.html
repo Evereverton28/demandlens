@@ -71,7 +71,7 @@
 </section>
 
 <section data-panel="import" hidden>
-  <div class="grid-2">
+  <div class="grid-2e">
     <div class="panel">
       <h2>Import sales history</h2>
       <p class="small muted">Use the DemandLens template for your own records, or the UCI Online Retail II file.
@@ -94,7 +94,19 @@
     </div>
     <div class="panel">
       <h2>Import history</h2>
+      <p class="small muted">Removing an import deletes its entries and any product left with no history.
+        Stored analysis results are cleared too, so run the analysis again afterwards.</p>
       <div id="imp-table" class="table-wrap"><p class="loading">Loading…</p></div>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:20px;max-width:760px">
+    <h2>Start again with a different dataset</h2>
+    <p class="small muted">Deletes every product, entry, import and analysis result in this account, so you can load a
+      different shop's data. Your sign-in details and settings are kept. This cannot be undone.</p>
+    <div class="form-actions">
+      <input id="clear-confirm" placeholder="Type DELETE to confirm" style="max-width:220px">
+      <button class="btn danger" id="clear-btn" type="button">Delete all my data</button>
+      <span class="form-msg" id="clear-msg" aria-live="polite"></span>
     </div>
   </div>
 </section>

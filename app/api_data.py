@@ -15,7 +15,7 @@ from analytics.preprocess import stock_on_hand
 
 from .auth import api_login_required
 from .db import get_db, rows
-from .importer import create_scenario, import_file
+from .importer import clear_all_data, create_scenario, delete_batch, import_file
 from .jobs import start_job
 
 bp = Blueprint("api_data", __name__, url_prefix="/api")
@@ -251,6 +251,24 @@ def scenario():
     except ValueError as e:
         return _bad(str(e))
     return jsonify(res), 201
+
+
+@bp.delete("/imports/<int:batch_id>")
+@api_login_required
+def remove_import(batch_id):
+    db = get_db()
+    try:
+        return jsonify(delete_batch(db, _uid(), batch_id))
+    except ValueError as e:
+        return _bad(str(e), 404)
+
+
+@bp.post("/data/clear")
+@api_login_required
+def clear_data():
+    if request.get_json(force=True).get("confirm") != "DELETE":
+        return _bad("Type DELETE to confirm.")
+    return jsonify(clear_all_data(get_db(), _uid()))
 
 
 @bp.get("/template.csv")

@@ -101,6 +101,9 @@ levels and are labelled as such in the interface.
 flask --app run create-user NAME EMAIL
 flask --app run import-data FILE --user NAME --format online_retail|generic [--synthetic]
 flask --app run create-scenario --user NAME     # simulated stock for datasets without stock records
+flask --app run list-imports --user NAME            # what has been imported
+flask --app run delete-import ID --user NAME       # remove one import and its data
+flask --app run clear-data --user NAME             # empty the account, keeping the login
 flask --app run analyse --user NAME
 flask --app run tune --user NAME                # optional grid search; later runs use the best settings
 flask --app run migrate-sims PATH/inventory.db  # bring users, items and transactions over from SIMS
@@ -138,4 +141,3 @@ instance/           created at run time: database, saved models, backtest cache
 
 Chen, D. (2012). *Online Retail II* [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C5CG6D
 — further references are in the project proposal.
-# demandlens
