@@ -203,10 +203,11 @@ prof_o = profile(panel, o, cfg)
 tr = training_rows(rows, o, cfg)
 model = QuantileGBM(cfg.gbm_params, cfg.random_state, with_mean=False).fit(add_profile(tr, prof_o, panel), tr["_y"].to_numpy())
 test = rows[(rows["_t"] == o) & (rows["age"] >= cfg.min_history_weeks) & rows["_y"].notna()]
-Xt = add_profile(test, prof_o, panel)[FEATURES].to_numpy(np.float32)
+Xt = add_profile(test, prof_o, panel)[model.features].to_numpy(np.float32)
+if model.dropped: print("Not used (no variation in the training data):", ", ".join(model.dropped))
 yt = np.log1p(test["_y"].to_numpy())
 imp = permutation_importance(model.models[0.5], Xt, yt, n_repeats=3, random_state=0, scoring="neg_mean_absolute_error")
-pd.Series(imp.importances_mean, index=FEATURES).sort_values().plot.barh(color=GREEN, figsize=(8, 7), title="Permutation importance (P50 model)"); plt.show()'''),
+pd.Series(imp.importances_mean, index=model.features).sort_values().plot.barh(color=GREEN, figsize=(8, 7), title="Permutation importance (P50 model)"); plt.show()'''),
     md("## 5. Example forecasts"),
     code('''top = profile(panel, T - 1, cfg).nlargest(4, "revenue_52w")["product_id"]
 fig, axes = plt.subplots(2, 2, figsize=(12, 7))

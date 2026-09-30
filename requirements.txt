@@ -1,4 +1,4 @@
-# Python 3.10 or newer
+# Python 3.10 or newer. Tested with scikit-learn 1.8 and 1.9, pandas 3.0, numpy 2.4-2.5.
 flask>=3.0
 pandas>=2.1
 numpy>=1.26

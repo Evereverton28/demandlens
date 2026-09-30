@@ -82,3 +82,21 @@ def test_recommendation_rules_explain_themselves():
     over = recommend(dict(abc_class="B", trend="declining", overstock_units=120, overstock_value=6000, stock_on_hand=300,
                           velocity_12w=2, movement_class="slow", weeks_since_sale=1), settings, None, cfg)
     assert over[0]["action"] == "REDUCE" and "KES 6,000" in over[0]["reason"]
+
+
+def test_model_ignores_features_that_never_vary():
+    """Short histories leave last year's sales empty; fixed prices make relative price constant.
+    scikit-learn 1.9 raises on such columns, so the model must leave them out."""
+    from analytics.features import CATEGORICAL, FEATURES
+    from analytics.forecasting import QuantileGBM
+    rng = np.random.default_rng(0)
+    n = 400
+    X = pd.DataFrame({c: rng.integers(0, 4, n).astype(float) if c in CATEGORICAL else rng.normal(size=n) for c in FEATURES})
+    X["y_last_year"] = np.nan          # no history a year back
+    X["rel_price"] = 1.0               # prices never changed
+    X["category"] = np.nan             # no categories given
+    y = rng.poisson(5, n).astype(float)
+    m = QuantileGBM({"max_iter": 20}, with_mean=True).fit(X, y)
+    assert set(m.dropped) == {"y_last_year", "rel_price", "category"}
+    p50, p90, mean = m.predict(X)
+    assert len(p50) == n and (p90 >= p50).all()

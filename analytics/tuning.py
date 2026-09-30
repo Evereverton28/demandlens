@@ -61,8 +61,7 @@ def tune(conn, user_id: int, cfg: AnalysisConfig | None = None, grid: dict | Non
             m.quantiles = (0.5,)
             m.fit(add_profile(train, prof, panel), train["_y"].to_numpy())
             A = add_profile(test, prof, panel)
-            from .features import FEATURES
-            p50 = np.clip(np.expm1(m.models[0.5].predict(A[FEATURES].to_numpy(dtype=np.float32))), 0, None)
+            p50 = m.predict(A)[0]
             scale = naive_scale(panel.units, o)[test["_p"].to_numpy()]
             ok = scale > 0
             err = np.abs(test["_y"].to_numpy() - p50)

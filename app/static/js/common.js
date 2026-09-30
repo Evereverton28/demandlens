@@ -28,11 +28,20 @@ const DL = (() => {
   const days = (v) => (v === null || v === undefined) ? "beyond a year" : (Math.round(v) === 1 ? "1 day" : `${num(v, 0)} days`);
   const date = (s) => s ? new Date(s.replace(" ", "T")).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "–";
   const shortDate = (s) => new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  const PATTERN = { smooth: "Smooth", erratic: "Erratic", intermittent: "Intermittent", lumpy: "Lumpy", insufficient: "Too few sales" };
-  const METHOD = { gbm: "Gradient boosting", seasonal_naive: "Seasonal naive", moving_average: "Moving average",
-                   ses: "Exponential smoothing", sba: "Croston (SBA)", inactive: "No recent sales" };
+  // Plain-language names used on every screen. The technical names (Syntetos–Boylan classes,
+  // ABC–XYZ, method names) appear only on the Model performance page, in brackets.
+  const PATTERN = { smooth: "Sells steadily", erratic: "Sells weekly, amounts vary", intermittent: "Sells now and then",
+                    lumpy: "Sells rarely, in big amounts", insufficient: "Too new to tell" };
+  const PATTERN_TECH = { smooth: "smooth", erratic: "erratic", intermittent: "intermittent", lumpy: "lumpy", insufficient: "insufficient" };
+  const METHOD = { gbm: "Machine learning model", seasonal_naive: "Same week last year", moving_average: "Recent average",
+                   ses: "Weighted recent average", sba: "Occasional-sales method", inactive: "No recent sales" };
+  const METHOD_TECH = { gbm: "gradient boosting", seasonal_naive: "seasonal naive", moving_average: "moving average",
+                        ses: "exponential smoothing", sba: "Croston SBA" };
+  const EARN = { A: "Top earner", B: "Mid earner", C: "Low earner" };
+  const PREDICT = { X: "Predictable", Y: "Varies", Z: "Unpredictable" };
   const MOVE = { fast: "Fast", medium: "Medium", slow: "Slow", dormant: "Dormant" };
   const tag = (text, cls = "") => text ? `<span class="tag ${esc(cls)}">${esc(text)}</span>` : "";
+  const earnTag = (c) => tag(EARN[c], c);
   const productLink = (id, name, sku) => `<a href="/products/${id}">${esc(name)}</a>${sku ? `<span class="sku">${esc(sku)}</span>` : ""}`;
 
   /* The stock runway: days of stock until the expected run-out (green bar), the worst case
@@ -43,7 +52,7 @@ const DL = (() => {
     const exp = m.runout_expected_days, worst = m.runout_worst_days;
     const cap = (v) => Math.max(0, Math.min(v ?? scaleDays, scaleDays)) / scaleDays * 100;
     const short = worst !== null && worst !== undefined && worst <= lead;
-    const label = `Expected to run out in ${days(exp)}, worst case ${days(worst)}; restock takes ${days(lead)}`;
+    const label = `Runs out in ${days(exp)} at the usual rate, or ${days(worst)} if the coming weeks are busy; a restock takes ${days(lead)}`;
     return `<div class="runway" role="img" aria-label="${esc(label)}" title="${esc(label)}">
       <div class="fill ${short ? "short" : ""}" style="width:${cap(exp)}%"></div>
       ${worst !== null && worst !== undefined ? `<div class="worst" style="left:calc(${cap(worst)}% - 1px)"></div>` : ""}
@@ -53,7 +62,7 @@ const DL = (() => {
   }
   const runwayLegend = () => `<div class="runway-legend">
     <span><i class="l-fill"></i>Stock at the expected sales rate</span>
-    <span><i class="l-worst"></i>Runs out if sales are high (90th percentile)</span>
+    <span><i class="l-worst"></i>Runs out if the coming weeks are busy</span>
     <span><i class="l-lead"></i>A restock ordered today arrives</span></div>`;
 
   function table(cols, rows, empty = "Nothing to show.") {
@@ -160,5 +169,5 @@ const DL = (() => {
   }).catch(() => null);
 
   return { C, api, esc, num, compact, money, moneyShort, pct, days, date, shortDate, tag, productLink, runway, runwayLegend,
-           table, pager, chart, notice, emptyState, ready, PATTERN, METHOD, MOVE };
+           table, pager, chart, notice, emptyState, ready, PATTERN, PATTERN_TECH, METHOD, METHOD_TECH, EARN, PREDICT, earnTag, MOVE };
 })();

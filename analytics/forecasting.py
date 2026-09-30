@@ -26,9 +26,14 @@ class QuantileGBM:
         self.models: dict[float, HistGradientBoostingRegressor] = {}
 
     def fit(self, X: pd.DataFrame, y: np.ndarray) -> "QuantileGBM":
-        cat_mask = [c in CATEGORICAL for c in FEATURES]
+        # A feature with fewer than two distinct values in the training data carries no information
+        # (e.g. last year's sales when there is under a year of history, or price when prices never
+        # change). It is left out, and the same columns are used at prediction time.
+        self.features = [c for c in FEATURES if X[c].nunique(dropna=True) >= 2]
+        self.dropped = [c for c in FEATURES if c not in self.features]
+        cat_mask = [c in CATEGORICAL for c in self.features]
         target = np.log1p(np.clip(y, 0, None))
-        A = X[FEATURES].to_numpy(dtype=np.float32)
+        A = X[self.features].to_numpy(dtype=np.float32)
         for q in self.quantiles:
             m = HistGradientBoostingRegressor(loss="quantile", quantile=q, categorical_features=cat_mask,
                                               random_state=self.random_state, **self.params)
@@ -40,7 +45,7 @@ class QuantileGBM:
         return self
 
     def predict(self, X: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        A = X[FEATURES].to_numpy(dtype=np.float32)
+        A = X[self.features].to_numpy(dtype=np.float32)
         p50 = np.clip(np.expm1(self.models[0.5].predict(A)), 0, None)
         p90 = np.maximum(np.clip(np.expm1(self.models[0.9].predict(A)), 0, None), p50)   # quantiles must not cross
         mean = self.models["mean"].predict(A) if "mean" in self.models else p50

@@ -1,5 +1,5 @@
 (async () => {
-  const { api, esc, num, pct, date, table, chart, C, METHOD, PATTERN } = DL;
+  const { api, esc, num, pct, date, table, chart, C, METHOD, METHOD_TECH, PATTERN } = DL;
   const body = document.getElementById("body");
   let d;
   try { d = await api("/api/model"); } catch (e) { body.innerHTML = `<div class="notice error">${esc(e.message)}</div>`; return; }
@@ -24,8 +24,8 @@
   const bestBase = methods.filter(m => m !== "gbm").reduce((b, m) => s.overall[m].mase < s.overall[b].mase ? m : b);
   const gain = s.overall.gbm ? 1 - s.overall.gbm.mase / s.overall[bestBase].mase : null;
   document.getElementById("headline").textContent = best === "gbm"
-    ? `Gradient boosting beat every simpler method, with ${pct(gain)} lower scaled error than the best of them.`
-    : `${METHOD[best]} was the most accurate method overall.`;
+    ? `The machine learning model beat every simpler method, with ${pct(gain)} less error than the best of them.`
+    : `The ${METHOD[best].toLowerCase()} was the most accurate method overall.`;
   document.getElementById("lede").innerHTML = `Tested on ${num(s.n_points)} product-weeks from ${num(s.n_products)} products, forecasting from
     ${s.origin_weeks.length} points in time between ${esc(date(s.origin_weeks[0]))} and ${esc(date(s.origin_weeks[s.origin_weeks.length - 1]))}.
     Each forecast used only data available at that time.`;
@@ -33,7 +33,7 @@
   const metricTable = (rows, cols) => {
     const lo = {};
     cols.forEach(c => { const vals = rows.map(r => c.get(r)).filter(v => v !== null && v !== undefined); lo[c.key] = c.best ? c.best(vals) : Math.min(...vals); });
-    return table([{ label: "Method", render: r => esc(METHOD[r.m] || r.m) + (r.m === "gbm" ? " <span class='muted small'>(the model)</span>" : "") },
+    return table([{ label: "Method", render: r => esc(METHOD[r.m] || r.m) + (METHOD_TECH[r.m] ? ` <span class='muted small'>(${esc(METHOD_TECH[r.m])})</span>` : "") },
       ...cols.map(c => ({ label: c.label, num: true, cls: "", render: r => { const v = c.get(r); const isBest = v === lo[c.key];
         return `<span class="${isBest ? "best" : ""}" ${isBest ? 'style="font-weight:700;color:var(--green)"' : ""}>${c.fmt(v)}</span>`; } }))], rows);
   };
@@ -48,54 +48,54 @@
   body.innerHTML = `
     <div class="grid-2">
       <section class="panel">
-        <div class="panel-head"><div><h2>Accuracy of each method</h2><p>Lower is better for MAE, WAPE and MASE; a bias of 1.00 means forecasts add up to actual sales. Best value in each column in green.</p></div></div>
+        <div class="panel-head"><div><h2>Accuracy of each method</h2><p>Lower is better for the first three columns. In the last column, 1.00 means forecasts added up exactly to what sold. Best value in each column in green.</p></div></div>
         <div class="table-wrap metric-table">${metricTable(overallRows, [
-          { key: "mae", label: "MAE (units)", get: r => r.mae, fmt: v => num(v, 2) },
-          { key: "wape", label: "WAPE", get: r => r.wape, fmt: v => num(v, 3) },
-          { key: "mase", label: "MASE", get: r => r.mase, fmt: v => num(v, 3) },
-          { key: "bias", label: "Bias", get: r => r.bias, fmt: v => num(v, 2), best: closestToOne },
+          { key: "mae", label: "Average error, units (MAE)", get: r => r.mae, fmt: v => num(v, 2) },
+          { key: "wape", label: "Error vs. total sales (WAPE)", get: r => r.wape, fmt: v => num(v, 3) },
+          { key: "mase", label: "Error vs. a naive guess (MASE)", get: r => r.mase, fmt: v => num(v, 3) },
+          { key: "bias", label: "Forecast ÷ actual (bias)", get: r => r.bias, fmt: v => num(v, 2), best: closestToOne },
         ])}</div>
       </section>
       <section class="panel explain">
         <h2>What these measure</h2>
-        <p style="margin-top:8px"><strong>MAE</strong> is the average number of units a weekly forecast was off by.
-          <strong>WAPE</strong> is total error divided by total sales, so 0.70 means errors added up to 70% of what sold.</p>
-        <p><strong>MASE</strong> divides each product's error by how much its sales normally change from week to week, then averages
-          across products, so small and large sellers count equally. Below 1 means better than simply repeating last week.</p>
-        <p><strong>Bias</strong> is total forecast divided by total sales. The model's median forecasts run low (for skewed demand the
-          typical week is below the average week), so cover and run-out dates use its separate expected-value forecast instead.</p>
+        <p style="margin-top:8px"><strong>Average error</strong> is how many units a weekly forecast was off by, on average.</p>
+        <p><strong>Error vs. total sales</strong> adds up all the errors and divides by everything that sold, so 0.70 means the
+          errors came to 70% of sales. Weekly sales of single products are very noisy, so this is normal for weekly forecasts.</p>
+        <p><strong>Error vs. a naive guess</strong> compares each method with simply assuming next week will be like last week.
+          Below 1 means the method did better than that guess.</p>
+        <p><strong>Forecast ÷ actual</strong> shows whether a method tends to guess too low (below 1) or too high (above 1).</p>
       </section>
     </div>
 
     <div class="grid-2e" style="margin-top:20px">
       <section class="panel">
-        <div class="panel-head"><div><h2>Accuracy by weeks ahead</h2><p>MASE for forecasts 1 to 4 weeks ahead</p></div></div>
+        <div class="panel-head"><div><h2>Accuracy by weeks ahead</h2><p>Error vs. a naive guess, for forecasts 1 to 4 weeks ahead (lower is better)</p></div></div>
         <div class="chart-box"><canvas id="c-horizon"></canvas></div>
       </section>
       <section class="panel">
-        <div class="panel-head"><div><h2>Uncertainty and expected demand</h2><p>How well the model's range and expected values held up</p></div></div>
+        <div class="panel-head"><div><h2>How reliable the busy-week level is</h2><p>The busy-week level should be exceeded only about one week in ten</p></div></div>
         ${cal.gbm_p90_coverage !== undefined ? `
         <dl class="facts">
-          <div><dt>Weeks at or below the 90th percentile</dt><dd>${pct(cal.gbm_p90_coverage, 1)} <small>target 90%</small></dd></div>
-          <div><dt>Expected-value bias</dt><dd>${cal.gbm_mean ? num(cal.gbm_mean.bias, 2) : "–"} <small>median: ${num(s.overall.gbm.bias, 2)}</small></dd></div>
-          <div><dt>Pinball loss at 0.9</dt><dd>${num(cal.gbm_p90_pinball, 2)}</dd></div>
+          <div><dt>Weeks that stayed at or below it</dt><dd>${pct(cal.gbm_p90_coverage, 1)} <small>target 90%</small></dd></div>
+          <div><dt>Expected-sales forecast ÷ actual</dt><dd>${cal.gbm_mean ? num(cal.gbm_mean.bias, 2) : "–"} <small>typical-week forecast: ${num(s.overall.gbm.bias, 2)}</small></dd></div>
+          <div><dt>Busy-week error (pinball loss)</dt><dd>${num(cal.gbm_p90_pinball, 2)}</dd></div>
         </dl>
-        <div class="table-wrap" style="margin-top:14px">${table([{ label: "Demand pattern", render: r => esc(PATTERN[r[0]] || r[0]) },
-          { label: "Coverage of the 90th percentile", num: true, render: r => pct(r[1], 1) }], Object.entries(cal.by_pattern || {}))}</div>` : `<p class="muted">The model was not used in this run.</p>`}
+        <div class="table-wrap" style="margin-top:14px">${table([{ label: "How it sells", render: r => esc(PATTERN[r[0]] || r[0]) },
+          { label: "Weeks at or below the busy-week level", num: true, render: r => pct(r[1], 1) }], Object.entries(cal.by_pattern || {}))}</div>` : `<p class="muted">The model was not used in this run.</p>`}
       </section>
     </div>
 
     <section class="panel" style="margin-top:20px">
-      <div class="panel-head"><div><h2>Accuracy by demand pattern, and the method chosen</h2>
-        <p>MASE per pattern. Each pattern uses whichever method was most accurate for it; young products without 26 weeks of history use the best simple method.</p></div></div>
+      <div class="panel-head"><div><h2>Which method works best for each kind of product</h2>
+        <p>Error vs. a naive guess for each group (lower is better). Each group is forecast by whichever method did best on it; products with less than 26 weeks of history use the best simple method.</p></div></div>
       <div class="table-wrap">${table([
-        { label: "Demand pattern", render: r => esc(PATTERN[r.p] || r.p) },
+        { label: "How it sells", render: r => esc(PATTERN[r.p] || r.p) },
         { label: "Products", num: true, render: r => num(s.by_pattern[r.p].products) },
         ...methods.map(m => ({ label: METHOD[m], num: true, render: r => { const v = s.by_pattern[r.p][m] && s.by_pattern[r.p][m].mase;
           const chosen = s.selection[r.p] && s.selection[r.p].method === m; return `<span style="${chosen ? "font-weight:700;color:var(--green)" : ""}">${num(v, 3)}</span>`; } })),
         { label: "Chosen", render: r => esc(METHOD[(s.selection[r.p] || {}).method] || "–") },
       ], pats.map(p => ({ p })))}</div>
-      <p class="small muted" style="margin-top:8px">“Too few sales” products sold at most once in the last year, so a forecast
+      <p class="small muted" style="margin-top:8px">“Too new to tell” products sold at most once in the last year, so a forecast
         near zero is almost always right, which is why errors there can be close to 0.</p>
       <p class="small muted">Products forecast by each method in this run: ${Object.entries(mu).map(([m, n]) => `${esc(METHOD[m] || m)} ${num(n)}`).join(", ")}.</p>
     </section>
@@ -107,24 +107,24 @@
         <dl class="facts" style="margin-bottom:12px">
           <div><dt>Weeks checked</dt><dd>${num(ae.weeks_checked)}</dd></div>
           <div><dt>Flagged before planting</dt><dd>${num(ae.flagged_before_injection)} <small>${pct(ae.flag_rate, 1)}</small></dd></div>
-          <div><dt>Zero-sales week caught</dt><dd>${ae.drops ? pct(ae.drops.recall) : "–"} <small>smooth and erratic products</small></dd></div>
+          <div><dt>Zero-sales week caught</dt><dd>${ae.drops ? pct(ae.drops.recall) : "–"} <small>products that sell every week</small></dd></div>
         </dl>
         <div class="table-wrap">${table([{ label: "Planted spike", render: r => `Sales × ${esc(r[0].slice(1))}` },
-          { label: "Caught (recall)", num: true, render: r => pct(r[1].recall) },
+          { label: "Share caught (recall)", num: true, render: r => pct(r[1].recall) },
           { label: "Precision, lower bound", num: true, render: r => r[1].precision_lower_bound === null ? "–" : pct(r[1].precision_lower_bound, 1) }],
           Object.entries(ae.spikes).sort((a, b) => Number(a[0].slice(1)) - Number(b[0].slice(1))))}</div>
         ${ae.threshold_sensitivity ? `<h3 style="margin:16px 0 4px">Choosing the threshold</h3>
-          <p class="small muted">A spike must reach this multiple of a busy (90th percentile) week. Higher multiples mean fewer false alarms but more missed spikes. Tested with 5× planted spikes.</p>
+          <p class="small muted">A spike must reach this multiple of a busy week to be flagged. Higher multiples mean fewer false alarms but more missed spikes. Tested with 5× planted spikes.</p>
           <div class="table-wrap">${table([
             { label: "Multiple of a busy week", render: r => `${num(r.multiple, 1)}×${r.chosen ? " <span class='tag A'>used</span>" : ""}` },
             { label: "Weeks flagged", num: true, render: r => pct(r.flag_rate, 1) },
-            { label: "Recall", num: true, render: r => pct(r.recall_x5) },
+            { label: "Share caught (recall)", num: true, render: r => pct(r.recall_x5) },
             { label: "Precision, lower bound", num: true, render: r => pct(r.precision_lower_bound_x5, 1) }], ae.threshold_sensitivity)}</div>` : ""}` : `<p class="muted">Not enough tested weeks to evaluate.</p>`}
       </section>
       <section class="panel explain">
         <h2>Reading the detector results</h2>
-        <p style="margin-top:8px">Recall is the share of planted anomalies the detector caught. Precision counts every other flagged week as a
-          false alarm, including weeks that really were unusual, so it understates true precision.</p>
+        <p style="margin-top:8px">To test the detector, fake spikes of a known size were planted in past weeks. The share caught shows how many it found.
+          Precision treats every other flagged week as a false alarm, even ones that really were unusual, so the true figure is higher.</p>
         <p>When weekly sales swing widely, as with wholesale orders, a week with no sales at all can look like an ordinary quiet week.
           The zero-sales figure shows how detectable such drops are in this data. Flag rates by pattern:
           ${Object.entries(ae.flag_rate_by_pattern || {}).map(([p, v]) => `${esc(PATTERN[p] || p)} ${pct(v, 1)}`).join(", ")}.</p>
@@ -138,10 +138,10 @@
           <div><dt>Test window</dt><dd>${num(cfg.backtest_weeks)} weeks <small>new origin every ${num(cfg.origin_step)}</small></dd></div>
           <div><dt>Training window</dt><dd>${num(cfg.train_window_weeks)} weeks of origins</dd></div>
           <div><dt>History for the model</dt><dd>${num(cfg.min_history_weeks)}+ weeks</dd></div>
-          <div><dt>Boosting iterations</dt><dd>${num(cfg.gbm_params && cfg.gbm_params.max_iter)}</dd></div>
+          <div><dt>Model trees (boosting iterations)</dt><dd>${num(cfg.gbm_params && cfg.gbm_params.max_iter)}</dd></div>
           <div><dt>Learning rate</dt><dd>${cfg.gbm_params ? cfg.gbm_params.learning_rate : "–"}</dd></div>
           <div><dt>Leaf nodes, min leaf size</dt><dd>${cfg.gbm_params ? `${cfg.gbm_params.max_leaf_nodes}, ${cfg.gbm_params.min_samples_leaf}` : "–"}</dd></div>
-          <div><dt>Anomaly threshold</dt><dd>|z| &gt; ${cfg.anomaly_z}</dd></div>
+          <div><dt>Unusual-sales threshold</dt><dd>robust z above ${cfg.anomaly_z}</dd></div>
         </dl></section>
       <section class="panel"><h2>Data in this run</h2>
         <dl class="facts" style="margin-top:10px">
@@ -160,5 +160,5 @@
   chart("c-horizon", { type: "line", data: { labels: hz.map(h => `${h} week${h === "1" ? "" : "s"} ahead`),
     datasets: methods.map(m => ({ label: METHOD[m], data: hz.map(h => s.by_horizon[h][m]), borderColor: colors[m], backgroundColor: colors[m],
       borderWidth: m === "gbm" ? 3 : 1.5, pointRadius: 3 })) },
-    options: { maintainAspectRatio: false, scales: { y: { title: { display: true, text: "MASE" } } } } });
+    options: { maintainAspectRatio: false, scales: { y: { title: { display: true, text: "Error vs. naive guess" } } } } });
 })();

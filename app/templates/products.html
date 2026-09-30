@@ -2,14 +2,14 @@
 {% block content %}
 <header class="page-head">
   <h1>Products</h1>
-  <p class="lede">Every product with its revenue class, demand pattern, trend and stock position from the latest analysis.</p>
+  <p class="lede">Every product: how much it earns, how it sells, whether sales are rising or falling, and how long its stock will last.</p>
 </header>
 <div class="filters">
   <label class="field">Search <input type="search" id="f-search" placeholder="Name or code"></label>
-  <label class="field">Revenue class <select id="f-abc"><option value="">All</option><option>A</option><option>B</option><option>C</option></select></label>
-  <label class="field">Demand pattern <select id="f-pattern"><option value="">All</option><option value="smooth">Smooth</option><option value="erratic">Erratic</option><option value="intermittent">Intermittent</option><option value="lumpy">Lumpy</option><option value="insufficient">Too few sales</option></select></label>
-  <label class="field">Trend <select id="f-trend"><option value="">All</option><option value="growing">Growing</option><option value="stable">Stable</option><option value="declining">Declining</option><option value="insufficient data">Not enough data</option></select></label>
-  <label class="field">Movement <select id="f-movement"><option value="">All</option><option value="fast">Fast</option><option value="medium">Medium</option><option value="slow">Slow</option><option value="dormant">Dormant</option></select></label>
+  <label class="field">Earnings <select id="f-abc"><option value="">All</option><option value="A">Top earners</option><option value="B">Mid earners</option><option value="C">Low earners</option></select></label>
+  <label class="field">How it sells <select id="f-pattern"><option value="">All</option><option value="smooth">Sells steadily</option><option value="erratic">Sells weekly, amounts vary</option><option value="intermittent">Sells now and then</option><option value="lumpy">Sells rarely, in big amounts</option><option value="insufficient">Too new to tell</option></select></label>
+  <label class="field">Sales direction <select id="f-trend"><option value="">All</option><option value="growing">Growing</option><option value="stable">Stable</option><option value="declining">Declining</option><option value="insufficient data">Too new to tell</option></select></label>
+  <label class="field">Speed <select id="f-movement"><option value="">All</option><option value="fast">Fast</option><option value="medium">Medium</option><option value="slow">Slow</option><option value="dormant">Dormant</option></select></label>
   <label class="field">Sort by <select id="f-sort"><option value="revenue">Revenue</option><option value="runout">Soonest run-out</option><option value="velocity">Weekly sales</option><option value="trend">Fastest growth</option><option value="overstock">Overstock value</option><option value="name">Name</option></select></label>
 </div>
 <div class="panel"><div class="table-wrap" id="table"><p class="loading">Loading…</p></div><div class="pager" id="pager"></div></div>

@@ -57,8 +57,8 @@ def recommend(m: dict, settings: dict, recent_anomaly: dict | None, cfg: Analysi
     if (not urgent and abc in ("A", "B") and growing and cover is not None
             and cover < cfg.increase_cover_weeks * 7):
         recs.append(dict(action="INCREASE_STOCK", quantity=m.get("reorder_qty") or None, priority=2,
-                         reason=f"Sales are rising (about +{(m.get('trend_slope') or 0):.1f} units a week, "
-                                f"p = {m.get('trend_p', 0):.3f}) and current stock covers only {_days(cover)}."))
+                         reason=f"Sales are clearly rising, by about {(m.get('trend_slope') or 0):.1f} more units each week, "
+                                f"and current stock covers only {_days(cover)}."))
 
     if recent_anomaly:
         a = recent_anomaly

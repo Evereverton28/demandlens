@@ -1,5 +1,5 @@
 (async () => {
-  const { api, esc, num, money, pct, days, date, shortDate, tag, table, chart, C, PATTERN, METHOD, MOVE, runway, runwayLegend } = DL;
+  const { api, esc, num, money, pct, days, date, shortDate, tag, earnTag, table, chart, C, PATTERN, PATTERN_TECH, METHOD, METHOD_TECH, EARN, PREDICT, MOVE, runway, runwayLegend } = DL;
   const body = document.getElementById("body");
   const id = body.dataset.product;
   let d;
@@ -11,11 +11,11 @@
   if (!m) {
     document.getElementById("p-lede").textContent = `Code ${p.sku}. This product was not part of the latest analysis.`;
   } else {
-    const cls = { A: "an A-class product", B: "a B-class product", C: "a C-class product" }[m.abc_class] || "a product";
+    const cls = { A: "one of your top earners", B: "a mid earner", C: "a low earner" }[m.abc_class] || "a product";
     const trend = { growing: "Sales are growing.", declining: "Sales are declining.", stable: "Sales are stable." }[m.trend] || "There are too few recent sales to test for a trend.";
     document.getElementById("p-lede").innerHTML =
       `Code ${esc(p.sku)}${p.category ? ` in ${esc(p.category)}` : ""}. It is ${cls}, bringing in ${esc(pct(m.revenue_share, 2))} of revenue over the last year. ` +
-      `Demand is ${esc((PATTERN[m.demand_pattern] || "").toLowerCase())}. ${esc(trend)}`;
+      `How it sells: ${esc((PATTERN[m.demand_pattern] || "").toLowerCase())}. ${esc(trend)}`;
   }
 
   const recs = (d.recommendations || []).map(r => `<div class="rec p${r.priority}"><h3>${esc(r.label)}${r.quantity ? `: ${num(r.quantity)} units` : ""}</h3>
@@ -26,18 +26,17 @@
       <div class="stack">
         <section class="panel">
           <div class="panel-head"><div><h2>Weekly sales and forecast</h2>
-            <p>Shaded: the range up to the 90th percentile. Dotted: what the model forecast at the time, during testing.</p></div></div>
+            <p>Black: what actually sold. Green: the forecast. Shaded: how high sales could go in a busy week. The dotted line shows what the system would have predicted at the time, so you can see how close it got.</p></div></div>
           <div class="chart-box tall"><canvas id="c-product"></canvas></div>
         </section>
         <section class="panel">
           <h2>Next four weeks</h2>
           <div class="table-wrap" style="margin-top:8px">${table([
             { label: "Week of", render: r => esc(date(r.week_start)) },
-            { label: "Expected", num: true, render: r => num(r.mean, 1) },
-            { label: "Median", num: true, render: r => num(r.p50, 1) },
-            { label: "Busy week (90th percentile)", num: true, render: r => num(r.p90, 1) },
+            { label: "Expected sales", num: true, render: r => num(r.mean, 1) },
+            { label: "In a busy week", num: true, render: r => num(r.p90, 1) },
           ], f, "No forecast in the latest analysis.")}</div>
-          ${f.length ? `<p class="small muted" style="margin-top:8px">Forecast by ${esc(METHOD[f[0].method] || f[0].method)}. The expected value is used for cover and run-out dates; the 90th percentile for worst-case planning.</p>` : ""}
+          ${f.length ? `<p class="small muted" style="margin-top:8px">Forecast by the ${esc((METHOD[f[0].method] || f[0].method).toLowerCase())}. “In a busy week” is the level sales stay below about nine weeks in ten; order quantities are based on it so a busy week does not empty the shelf.</p>` : ""}
         </section>
       </div>
       <div class="stack">
@@ -47,23 +46,31 @@
           <dl class="facts">
             <div><dt>Stock on hand</dt><dd>${m.stock_on_hand === null ? "Not recorded" : num(m.stock_on_hand)}</dd></div>
             <div><dt>Days of cover</dt><dd>${m.stock_on_hand === null ? "–" : esc(days(m.days_of_cover))}</dd></div>
-            <div><dt>Expected run-out</dt><dd>${m.stock_on_hand === null ? "–" : esc(days(m.runout_expected_days))}</dd></div>
-            <div><dt>Worst-case run-out</dt><dd>${m.stock_on_hand === null ? "–" : esc(days(m.runout_worst_days))}</dd></div>
+            <div><dt>Runs out at the usual rate</dt><dd>${m.stock_on_hand === null ? "–" : esc(days(m.runout_expected_days))}</dd></div>
+            <div><dt>Runs out if weeks are busy</dt><dd>${m.stock_on_hand === null ? "–" : esc(days(m.runout_worst_days))}</dd></div>
             <div><dt>Restock lead time</dt><dd>${esc(days(m.lead_time_days))}</dd></div>
             <div><dt>Suggested order</dt><dd>${m.reorder_qty ? num(m.reorder_qty) + " units" : "None"}</dd></div>
             ${m.overstock_units ? `<div><dt>Beyond expected demand</dt><dd>${num(m.overstock_units)} <small>units</small></dd></div>` : ""}
           </dl>` : `<p class="muted">Run the analysis to see this product's stock position.</p>`}
         </section>
         ${recs ? `<section class="panel"><h2 style="margin-bottom:10px">Recommendations</h2>${recs}</section>` : ""}
-        ${m ? `<section class="panel"><h2>Profile</h2>
+        ${m ? `<section class="panel"><h2>About this product</h2>
           <dl class="facts" style="margin-top:10px">
-            <div><dt>Revenue class</dt><dd>${tag(m.abc_class, m.abc_class)} <small>${esc(money(m.revenue_52w, cur))}</small></dd></div>
-            <div><dt>Variability (XYZ)</dt><dd>${esc(m.xyz_class || "–")} <small>CV ${num(m.cv, 2)}</small></dd></div>
-            <div><dt>Demand pattern</dt><dd>${esc(PATTERN[m.demand_pattern] || "–")} <small>ADI ${num(m.adi, 2)}, CV² ${num(m.cv2, 2)}</small></dd></div>
-            <div><dt>Trend (Mann–Kendall)</dt><dd>${esc(m.trend || "–")} <small>${m.trend_p !== null ? `p = ${num(m.trend_p, 3)}, ${num(m.trend_slope, 2)}/wk` : ""}</small></dd></div>
-            <div><dt>Weekly sales, 12 weeks</dt><dd>${num(m.velocity_12w, 1)}</dd></div>
-            <div><dt>Movement</dt><dd>${esc(MOVE[m.movement_class] || "–")} <small>${num(m.weeks_since_sale)} weeks since a sale</small></dd></div>
-          </dl></section>` : ""}
+            <div><dt>Earnings</dt><dd>${earnTag(m.abc_class)} <small>${esc(money(m.revenue_52w, cur))} in a year</small></dd></div>
+            <div><dt>How it sells</dt><dd>${esc(PATTERN[m.demand_pattern] || "–")}</dd></div>
+            <div><dt>How predictable</dt><dd>${esc(PREDICT[m.xyz_class] || "–")}</dd></div>
+            <div><dt>Sales direction</dt><dd>${esc({ growing: "Growing", declining: "Declining", stable: "Stable" }[m.trend] || "Too new to tell")}${m.trend === "growing" || m.trend === "declining" ? ` <small>${m.trend_slope > 0 ? "+" : ""}${num(m.trend_slope, 1)} a week</small>` : ""}</dd></div>
+            <div><dt>Sells per week</dt><dd>${num(m.velocity_12w, 1)} <small>last 12 weeks</small></dd></div>
+            <div><dt>Last sale</dt><dd>${m.weeks_since_sale ? `${num(m.weeks_since_sale)} weeks ago` : "This week"}</dd></div>
+          </dl>
+          <details class="tech"><summary>Technical details</summary>
+            <dl class="facts" style="margin-top:8px">
+              <div><dt>ABC class</dt><dd>${esc(m.abc_class || "–")}</dd></div>
+              <div><dt>XYZ class</dt><dd>${esc(m.xyz_class || "–")} <small>CV ${num(m.cv, 2)}</small></dd></div>
+              <div><dt>Demand pattern</dt><dd>${esc(PATTERN_TECH[m.demand_pattern] || "–")} <small>ADI ${num(m.adi, 2)}, CV² ${num(m.cv2, 2)}</small></dd></div>
+              <div><dt>Mann–Kendall trend</dt><dd>${m.trend_p !== null ? `p = ${num(m.trend_p, 3)}` : "–"} <small>Sen's slope ${num(m.trend_slope, 2)}/wk</small></dd></div>
+              ${f.length ? `<div><dt>Forecast method</dt><dd>${esc(METHOD_TECH[f[0].method] || f[0].method)}</dd></div>` : ""}
+            </dl></details></section>` : ""}
       </div>
     </div>
     <div class="grid-2e" style="margin-top:20px">
@@ -87,9 +94,9 @@
     type: "line",
     data: { labels, datasets: [
       { label: "Units sold", data: hist.map(h => h.units).concat(f.map(() => null)), borderColor: C.ink, backgroundColor: C.ink, borderWidth: 1.8, pointRadius: 0, tension: 0.15 },
-      { label: "Median forecast", data: series(b => b ? b.p50 : null, x => x.p50), borderColor: C.green, borderDash: [2, 3], borderWidth: 2, pointRadius: 0, spanGaps: false },
-      { label: "90th percentile", data: series(b => b ? b.p90 : null, x => x.p90), borderColor: "rgba(183,121,31,.6)", backgroundColor: "rgba(156,197,184,.28)", borderWidth: 1, pointRadius: 0, fill: "-1" },
-      { label: "Expected (future)", data: hist.map((h, i) => i === n - 1 ? h.units : null).concat(f.map(x => x.mean)), borderColor: C.green, borderWidth: 2.2, pointRadius: 2 },
+      { label: "Predicted at the time", data: series(b => b ? b.p50 : null, x => null), borderColor: C.green, borderDash: [2, 3], borderWidth: 2, pointRadius: 0, spanGaps: false },
+      { label: "Busy week", data: series(b => b ? b.p90 : null, x => x.p90), borderColor: "rgba(183,121,31,.6)", backgroundColor: "rgba(156,197,184,.28)", borderWidth: 1, pointRadius: 0, fill: "-1" },
+      { label: "Forecast", data: hist.map((h, i) => i === n - 1 ? h.units : null).concat(f.map(x => x.mean)), borderColor: C.green, borderWidth: 2.2, pointRadius: 2 },
     ]},
     options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
       scales: { x: { ticks: { maxTicksLimit: 9, callback: (v, i) => shortDate(labels[i]) }, grid: { display: false } }, y: { beginAtZero: true } },

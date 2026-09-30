@@ -1,5 +1,5 @@
 (async () => {
-  const { api, esc, num, money, days, tag, table, productLink, runway, runwayLegend } = DL;
+  const { api, esc, num, money, days, tag, earnTag, table, productLink, runway, runwayLegend } = DL;
   const body = document.getElementById("body");
   let d;
   try { d = await api("/api/risk"); } catch (e) { body.innerHTML = `<div class="notice error">${esc(e.message)}</div>`; return; }
@@ -18,11 +18,11 @@
       ${runwayLegend()}
       <div class="table-wrap">${table([
         { label: "Product", cls: "name", render: r => productLink(r.product_id, r.name, r.sku) },
-        { label: "Class", render: r => tag(r.abc_class, r.abc_class) },
+        { label: "Earnings", render: r => earnTag(r.abc_class) },
         { label: "Stock", num: true, render: r => num(r.stock_on_hand) },
         { label: `Runway (0–${scale} days)`, render: r => runway(r, scale) },
-        { label: "Worst case", num: true, render: r => esc(days(r.runout_worst_days)) },
-        { label: "Expected", num: true, render: r => esc(days(r.runout_expected_days)) },
+        { label: "Could run out in", num: true, render: r => esc(days(r.runout_worst_days)) },
+        { label: "At the usual rate", num: true, render: r => esc(days(r.runout_expected_days)) },
         { label: "Suggested order", num: true, render: r => r.reorder_qty ? num(r.reorder_qty) : "–" },
       ], d.stockout, "No product is close to running out.")}</div>
     </section>
@@ -31,8 +31,8 @@
         <p>${num(d.overstock_total)} products hold stock beyond ${num(d.overstock_weeks)} weeks of expected demand${d.overstock_value_total ? `, about ${esc(money(d.overstock_value_total, cur))} in total` : ""}. Largest value first${d.overstock_total > d.overstock.length ? `; the top ${num(d.overstock.length)} are shown` : ""}.</p></div></div>
       <div class="table-wrap">${table([
         { label: "Product", cls: "name", render: r => productLink(r.product_id, r.name, r.sku) },
-        { label: "Class", render: r => tag(r.abc_class, r.abc_class) },
-        { label: "Trend", render: r => r.trend === "declining" ? tag("Declining", "declining") : esc(r.trend === "growing" ? "Growing" : r.trend === "stable" ? "Stable" : "–") },
+        { label: "Earnings", render: r => earnTag(r.abc_class) },
+        { label: "Sales direction", render: r => r.trend === "declining" ? tag("Declining", "declining") : esc(r.trend === "growing" ? "Growing" : r.trend === "stable" ? "Stable" : "–") },
         { label: "Stock", num: true, render: r => num(r.stock_on_hand) },
         { label: "Days of cover", num: true, render: r => esc(days(r.days_of_cover)) },
         { label: "Excess units", num: true, render: r => num(r.overstock_units) },

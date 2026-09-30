@@ -62,8 +62,8 @@
           <h2>How to read this</h2>
           <p style="margin-top:8px">Forecasts come from the method that was most accurate for each kind of demand when
             tested on past weeks. See <a href="/model">Model performance</a> for the test results.</p>
-          <p>“Could run out” means stock would not last until a restock arrives if sales are at their
-            90th percentile, that is, a busy week the model expects about one time in ten.</p>
+          <p>“Could run out” means the stock would not last until a new delivery arrives if the coming weeks
+            turn out busy, the kind of week that happens about one time in ten.</p>
         </section>
       </div>
     </div>`;
@@ -90,7 +90,7 @@
     <li>
       <div><div class="what"><a href="/products/${a.product_id}">${esc(a.name)}</a></div>
         <div class="small muted">${esc(a.label)}${a.quantity ? ` · ${num(a.quantity)} units` : ""}</div></div>
-      <div>${runway(a, scale)}<div class="days">Worst case ${esc(days(a.runout_worst_days))}, restock ${esc(days(a.lead_time_days))}</div></div>
+      <div>${runway(a, scale)}<div class="days">Could run out in ${esc(days(a.runout_worst_days))}; a restock takes ${esc(days(a.lead_time_days))}</div></div>
       <div class="why">${esc(a.reason)}</div>
     </li>`).join("") : `<li class="muted">Nothing urgent. Check back after the next analysis.</li>`;
 
