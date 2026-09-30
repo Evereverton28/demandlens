@@ -6,7 +6,9 @@
   if (d.run === null) { DL.emptyState(body, "No analysis yet", "Run the analysis to see stock risk."); return; }
   const cur = d.currency;
   document.getElementById("headline").textContent = d.at_risk
-    ? `${num(d.at_risk)} ${d.at_risk === 1 ? "product" : "products"} could run out before a restock arrives.`
+    ? `${num(d.at_risk)} ${d.at_risk === 1 ? "product runs" : "products run"} out before a restock could arrive`
+      + (d.at_risk_busy ? `, and ${num(d.at_risk_busy)} more could if sales are busy.` : ".")
+    : d.at_risk_busy ? `Nothing runs out at the usual rate; ${num(d.at_risk_busy)} ${d.at_risk_busy === 1 ? "product" : "products"} could if sales are busy.`
     : "No product is expected to run out before a restock could arrive.";
   if (d.stock_unknown) DL.notice(`${num(d.stock_unknown)} active products have no recorded stock, so their risk can't be assessed. Record a stock count on the Data page.`, "info");
   const scale = Math.max(28, ...d.stockout.map(r => (r.lead_time_days || 0) * 2));

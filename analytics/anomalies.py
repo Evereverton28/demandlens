@@ -11,6 +11,12 @@ Rules, chosen per demand pattern:
 * spike - z > 3.5, and the week reached at least twice the model's own P90
   (a busy week) by at least ``anomaly_min_units`` units. Without the P90 test,
   products that usually sell nothing are flagged for any small sale;
+* for products that only sell now and then (intermittent and lumpy), the
+  typical forecast week is zero, so almost any sale clears the tests above.
+  Such a week is judged against the product's own selling weeks instead: it
+  must also reach ``anomaly_sporadic_multiple`` times the upper quartile of
+  its non-zero weeks in the window. The upper quartile, not the median,
+  because occasional big weeks are normal for these products;
 * drop  - z < -3.5 and at least ``anomaly_min_units`` below expectation, only
   for smooth and erratic products. For intermittent and lumpy products,
   near-empty weeks are the normal pattern (Syntetos, Boylan & Croston, 2005),
@@ -32,6 +38,7 @@ import pandas as pd
 from .config import AnalysisConfig
 
 DROP_PATTERNS = ("smooth", "erratic")
+SPORADIC_PATTERNS = ("intermittent", "lumpy")
 HIGH_Z = 7.0          # drop severity
 TXN_MULTIPLE = 10
 
@@ -61,6 +68,10 @@ def weekly_anomalies(points: pd.DataFrame, cfg: AnalysisConfig) -> pd.DataFrame:
     pts["score"] = robust_z(pts["resid"], pts["product_id"])
     spike = ((pts["score"] > cfg.anomaly_z) & (pts["actual"] >= cfg.anomaly_p90_multiple * pts["p90"])
              & (pts["actual"] - pts["p90"] >= cfg.anomaly_min_units))
+    sporadic = pts["pattern"].isin(SPORADIC_PATTERNS)
+    if sporadic.any():
+        usual = pts["actual"].where(pts["actual"] > 0).groupby(pts["product_id"]).transform(lambda s: s.quantile(0.75))
+        spike &= ~sporadic | (pts["actual"] >= cfg.anomaly_sporadic_multiple * usual.fillna(0))
     drop = ((pts["score"] < -cfg.anomaly_z) & (pts["resid"] <= -cfg.anomaly_min_units)
             & pts["pattern"].isin(DROP_PATTERNS))
     out = pts[spike | drop].copy()
@@ -143,3 +154,46 @@ def injection_evaluation(points: pd.DataFrame, cfg: AnalysisConfig, multiples=(3
                          "precision_lower_bound_x5": tp / (tp + fp) if tp + fp else None, "chosen": k == cfg.anomaly_p90_multiple})
         result["threshold_sensitivity"] = sens
     return result
+
+
+def group_events(weekly: pd.DataFrame, transactions: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Turn flags into events, so that one real event raises one alarm.
+
+    The detector judges each week on its own, which is what its evaluation measures. For review,
+    though, a surge lasting four weeks is one event, not four, and a week that is unusual only
+    because of one very large sale is the same event as that sale. So:
+
+    * consecutive flagged weeks for a product, in the same direction, become one event starting
+      in the first week, with units summed over the event;
+    * a one-week spike that coincides with an unusually large single sale is reported as the
+      sale, which says exactly what to check; within a longer surge the sale is left to the
+      surge's event.
+    """
+    cols = ["product_id", "week_start", "actual", "expected", "score", "direction", "severity", "weeks"]
+    if weekly.empty:
+        return pd.DataFrame(columns=cols), transactions
+    w = weekly.copy()
+    w["week_start"] = pd.to_datetime(w["week_start"])
+    w = w.sort_values(["product_id", "direction", "week_start"])
+    new_run = (w["product_id"].ne(w["product_id"].shift()) | w["direction"].ne(w["direction"].shift())
+               | (w["week_start"] - w["week_start"].shift()).ne(pd.Timedelta(weeks=1)))
+    w["run"] = new_run.cumsum()
+    events = w.groupby("run").agg(product_id=("product_id", "first"), week_start=("week_start", "first"),
+                                  actual=("actual", "sum"), expected=("expected", "sum"),
+                                  score=("score", lambda s: s.loc[s.abs().idxmax()]), direction=("direction", "first"),
+                                  severity=("severity", lambda s: "high" if (s == "high").any() else "moderate"),
+                                  weeks=("week_start", "size")).reset_index(drop=True)
+    if transactions.empty:
+        return events[cols], transactions
+    tx_day = pd.to_datetime(transactions["occurred_at"]).dt.normalize()
+    tx_week = (tx_day - pd.to_timedelta(tx_day.dt.weekday, unit="D")).to_numpy()
+    tx_pid = transactions["product_id"].to_numpy()
+    tx_keys = set(zip(tx_pid, tx_week))
+    single = [i for i, e in events.iterrows() if e["direction"] == "spike" and e["weeks"] == 1
+              and (e["product_id"], e["week_start"].to_datetime64()) in tx_keys]
+    covered = np.zeros(len(transactions), dtype=bool)
+    for e in events[(events["direction"] == "spike") & (events["weeks"] > 1)].itertuples():
+        start = e.week_start.to_datetime64()
+        end = (e.week_start + pd.Timedelta(weeks=int(e.weeks))).to_datetime64()
+        covered |= (tx_pid == e.product_id) & (tx_week >= start) & (tx_week < end)
+    return events.drop(index=single)[cols].reset_index(drop=True), transactions[~covered]

@@ -150,6 +150,7 @@ CREATE TABLE IF NOT EXISTS anomalies (
     movement_id INTEGER NOT NULL DEFAULT 0,      -- 0 for weekly anomalies
     actual      REAL, expected REAL, score REAL,
     direction   TEXT,                            -- spike | drop
+    weeks       INTEGER NOT NULL DEFAULT 1,      -- consecutive flagged weeks grouped into this event
     severity    TEXT,                            -- high | moderate
     status      TEXT NOT NULL DEFAULT 'open',    -- open | confirmed | dismissed
     note        TEXT,
@@ -166,3 +167,4 @@ CREATE TABLE IF NOT EXISTS recommendations (
     reason      TEXT NOT NULL,
     PRIMARY KEY (run_id, product_id, action)
 );
+

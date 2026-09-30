@@ -11,11 +11,13 @@
       b.textContent = { open: "To review", confirmed: "Confirmed", dismissed: "Dismissed" }[b.dataset.status] + ` (${num(n)})`;
     });
     el("table").innerHTML = table([
-      { label: "Week of", render: r => esc(date(r.week_start)) },
+      { label: "When", render: r => esc(date(r.week_start)) + (r.weeks > 1 ? `<div class="small muted">for ${num(r.weeks)} weeks</div>` : "") },
       { label: "Product", cls: "name", render: r => productLink(r.product_id, r.name, r.sku) },
       { label: "What happened", render: r => r.kind === "transaction"
           ? `One sale of ${num(r.actual)} units, ${num(r.score, 0)}× the usual ${num(r.expected, 0)}`
-          : `${num(r.actual)} units sold; about ${num(r.expected, 0)} expected` },
+          : r.weeks > 1
+            ? `${num(r.actual)} units sold over ${num(r.weeks)} weeks; about ${num(r.expected, 0)} expected`
+            : `${num(r.actual)} units sold; about ${num(r.expected, 0)} expected` },
       { label: "Severity", render: r => tag(r.severity === "high" ? "High" : "Moderate", r.severity) },
       { label: "", render: r => status === "open"
           ? `<button class="btn quiet small" data-id="${r.anomaly_id}" data-set="confirmed">Confirm</button>

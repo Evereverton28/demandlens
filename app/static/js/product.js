@@ -76,7 +76,7 @@
     <div class="grid-2e" style="margin-top:20px">
       <section class="panel"><h2>Unusual sales</h2><div class="table-wrap" style="margin-top:8px">${table([
         { label: "Week of", render: r => esc(date(r.week_start)) },
-        { label: "What", render: r => r.kind === "transaction" ? "Unusually large sale" : (r.direction === "spike" ? "Sales far above expected" : "Sales far below expected") },
+        { label: "What", render: r => r.kind === "transaction" ? "Unusually large sale" : (r.direction === "spike" ? "Sales far above expected" : "Sales far below expected") + (r.weeks > 1 ? ` for ${num(r.weeks)} weeks` : "") },
         { label: "Actual", num: true, render: r => num(r.actual) }, { label: "Expected", num: true, render: r => num(r.expected, 1) },
         { label: "Status", render: r => esc(r.status) }], d.anomalies, "None found.")}</div></section>
       <section class="panel"><h2>Latest entries</h2><div class="table-wrap" style="margin-top:8px">${table([

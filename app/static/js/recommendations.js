@@ -2,7 +2,7 @@
   const { api, esc, num, days, tag, table, productLink } = DL;
   const tabs = document.getElementById("tabs"), box = document.getElementById("table");
   let action = new URLSearchParams(location.search).get("action") || "";
-  const ORDER = ["REORDER_URGENT", "INCREASE_STOCK", "INVESTIGATE", "REDUCE", "PAUSE_REORDER", "REVIEW_RANGE"];
+  const ORDER = ["REORDER_URGENT", "REORDER_SOON", "INCREASE_STOCK", "INVESTIGATE", "REDUCE", "PAUSE_REORDER", "REVIEW_RANGE"];
 
   async function load() {
     const d = await api("/api/recommendations" + (action ? `?action=${action}` : ""));

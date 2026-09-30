@@ -11,6 +11,7 @@ from .config import AnalysisConfig
 
 LABELS = {
     "REORDER_URGENT": "Reorder now",
+    "REORDER_SOON": "Reorder soon",
     "INCREASE_STOCK": "Stock more",
     "INVESTIGATE": "Check unusual sales",
     "REDUCE": "Reduce or clear stock",
@@ -40,18 +41,22 @@ def recommend(m: dict, settings: dict, recent_anomaly: dict | None, cfg: Analysi
     urgent = (p90_days is not None and p90_days <= lead and (m.get("reorder_qty") or 0) > 0
               and (m.get("velocity_12w") or 0) > 0)
 
-    if urgent:
-        if (m.get("stock_on_hand") or 0) <= 0:
-            when = "It is out of stock"
-        elif round(p90_days) < 1:
-            when = "Stock could run out within a day if demand is high"
-        else:
-            exp = (f"about {_days(p50_days)} at the expected rate" if p50_days is not None
-                   else "later at the expected rate")
-            when = f"Stock could run out in {_days(p90_days)} if demand is high ({exp})"
+    # Two levels: "now" if stock runs out before a delivery could arrive even at the usual rate;
+    # "soon" if only a busy spell would empty it first.
+    out_of_stock = (m.get("stock_on_hand") or 0) <= 0
+    must = urgent and (out_of_stock or (p50_days is not None and p50_days <= lead))
+    order = f"Order {m.get('reorder_qty') or 0:.0f} units to cover a busy spell until the next review."
+    if must:
+        when = ("It is out of stock" if out_of_stock else
+                "At the usual rate the stock runs out within a day" if round(p50_days) < 1 else
+                f"At the usual rate the stock runs out in about {_days(p50_days)}")
         recs.append(dict(action="REORDER_URGENT", quantity=m["reorder_qty"], priority=1 if abc in ("A", "B") else 2,
-                         reason=f"{when}; a restock takes {_days(lead)}. Order {m['reorder_qty']:.0f} units to "
-                                f"cover high demand until the next review."))
+                         reason=f"{when}, and a restock takes {_days(lead)}. {order}"))
+    elif urgent:
+        usual = f"about {_days(p50_days)}" if p50_days is not None else "more than a year"
+        recs.append(dict(action="REORDER_SOON", quantity=m["reorder_qty"], priority=2 if abc in ("A", "B") else 3,
+                         reason=f"At the usual rate the stock lasts {usual}, longer than the {_days(lead)} a restock "
+                                f"takes, but a busy spell could empty it in {_days(p90_days)}. {order}"))
 
     cover = m.get("days_of_cover")
     if (not urgent and abc in ("A", "B") and growing and cover is not None
@@ -63,10 +68,16 @@ def recommend(m: dict, settings: dict, recent_anomaly: dict | None, cfg: Analysi
     if recent_anomaly:
         a = recent_anomaly
         what = "far above" if a["direction"] == "spike" else "far below"
+        if a.get("kind") == "transaction":
+            said = (f"One sale in the week of {a['week_start']} was {a['actual']:.0f} units, far more than the usual "
+                    f"{a['expected']:.0f} per sale.")
+        elif (a.get("weeks") or 1) > 1:
+            said = (f"Over {a['weeks']} weeks from {a['week_start']}, {a['actual']:.0f} units sold, {what} the "
+                    f"{a['expected']:.0f} expected.")
+        else:
+            said = f"Sales in the week of {a['week_start']} were {a['actual']:.0f} units, {what} the expected {a['expected']:.0f}."
         recs.append(dict(action="INVESTIGATE", quantity=None, priority=2,
-                         reason=f"Sales in the week of {a['week_start']} were {a['actual']:.0f} units, {what} the "
-                                f"expected {a['expected']:.0f}. Check for a recording error, a one-off bulk order "
-                                f"or a stock problem before reordering."))
+                         reason=said + " Check for a recording error, a one-off bulk order or a stock problem before reordering."))
 
     over = m.get("overstock_units")
     if over:

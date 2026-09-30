@@ -15,7 +15,7 @@ from .jobs import active_job, start_job
 bp = Blueprint("api_analytics", __name__, url_prefix="/api")
 
 ACTION_LABELS = {
-    "REORDER_URGENT": "Reorder now", "INCREASE_STOCK": "Stock more", "INVESTIGATE": "Check unusual sales",
+    "REORDER_URGENT": "Reorder now", "REORDER_SOON": "Reorder soon", "INCREASE_STOCK": "Stock more", "INVESTIGATE": "Check unusual sales",
     "REDUCE": "Reduce or clear stock", "PAUSE_REORDER": "Pause reordering", "REVIEW_RANGE": "Review whether to keep stocking",
 }
 
@@ -83,7 +83,10 @@ def overview():
     summ = json.loads(run["metrics_json"])
     k = db.execute("""SELECT COUNT(*) AS products,
                         SUM(forecast_method!='inactive') AS active,
-                        SUM(runout_worst_days IS NOT NULL AND runout_worst_days <= lead_time_days AND velocity_12w > 0) AS at_risk,
+                        SUM(runout_worst_days IS NOT NULL AND runout_worst_days <= lead_time_days AND velocity_12w > 0
+                            AND (stock_on_hand <= 0 OR runout_expected_days <= lead_time_days)) AS at_risk,
+                        SUM(runout_worst_days IS NOT NULL AND runout_worst_days <= lead_time_days AND velocity_12w > 0
+                            AND NOT (stock_on_hand <= 0 OR runout_expected_days <= lead_time_days)) AS at_risk_busy,
                         SUM(stock_on_hand IS NOT NULL) AS with_stock,
                         SUM(overstock_units IS NOT NULL) AS overstocked,
                         SUM(overstock_value) AS overstock_value
@@ -258,14 +261,18 @@ def risk():
     selling = "AND m.velocity_12w > 0 AND m.runout_worst_days IS NOT NULL"
     stockout = rows(db.execute(f"""SELECT {cols} {base} {selling} AND m.runout_worst_days <= ?
                                    ORDER BY m.runout_worst_days, m.revenue_52w DESC LIMIT 100""", (rid, horizon)))
-    at_risk = db.execute(f"SELECT COUNT(*) {base} {selling} AND m.runout_worst_days <= m.lead_time_days", (rid,)).fetchone()[0]
+    must = "(m.stock_on_hand <= 0 OR m.runout_expected_days <= m.lead_time_days)"
+    at_risk = db.execute(f"SELECT COUNT(*) {base} {selling} AND m.runout_worst_days <= m.lead_time_days AND {must}",
+                         (rid,)).fetchone()[0]
+    at_risk_busy = db.execute(f"SELECT COUNT(*) {base} {selling} AND m.runout_worst_days <= m.lead_time_days AND NOT {must}",
+                              (rid,)).fetchone()[0]
     within = db.execute(f"SELECT COUNT(*) {base} {selling} AND m.runout_worst_days <= ?", (rid, horizon)).fetchone()[0]
     over_total = db.execute(f"SELECT COUNT(*), SUM(m.overstock_value) {base} AND m.overstock_units IS NOT NULL", (rid,)).fetchone()
     over = rows(db.execute(f"""SELECT {cols} {base} AND m.overstock_units IS NOT NULL
                                ORDER BY COALESCE(m.overstock_value, 0) DESC LIMIT 100""", (rid,)))
     unknown = db.execute(f"SELECT COUNT(*) {base} AND m.stock_on_hand IS NULL AND m.forecast_method!='inactive'",
                          (rid,)).fetchone()[0]
-    return jsonify(stockout=stockout, overstock=over, stock_unknown=unknown, horizon_days=horizon, at_risk=at_risk,
+    return jsonify(stockout=stockout, overstock=over, stock_unknown=unknown, horizon_days=horizon, at_risk=at_risk, at_risk_busy=at_risk_busy,
                    within_horizon=within, overstock_total=over_total[0], overstock_value_total=over_total[1],
                    currency=settings["currency"], overstock_weeks=settings["overstock_weeks"])
 

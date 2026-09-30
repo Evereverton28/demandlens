@@ -19,7 +19,8 @@
 
   // Headline: the single most important fact, in words.
   let headline;
-  if (k.at_risk > 0) headline = `${num(k.at_risk)} ${k.at_risk === 1 ? "product" : "products"} could run out before a restock arrives.`;
+  if (k.at_risk > 0) headline = `${num(k.at_risk)} ${k.at_risk === 1 ? "product needs" : "products need"} reordering now.`;
+  else if (k.at_risk_busy > 0) headline = `Nothing needs reordering urgently; ${num(k.at_risk_busy)} ${k.at_risk_busy === 1 ? "product" : "products"} could run short if sales are busy.`;
   else if (k.with_stock === 0) headline = `Sales are forecast for ${num(k.active)} active products.`;
   else if (k.overstocked > 0) headline = `Nothing is about to run out; ${num(k.overstocked)} products hold more stock than they need.`;
   else headline = `Stock looks healthy across ${num(k.active)} active products.`;
@@ -36,7 +37,7 @@
       <div class="kpi"><div class="label">Revenue, last 4 weeks</div><div class="value">${esc(DL.moneyShort(k.revenue_4w, cur))}</div>${delta(revChange)}</div>
       <div class="kpi"><div class="label">Units sold, last 4 weeks</div><div class="value">${esc(compact(k.units_4w))}</div>${delta(unitsChange)}</div>
       <div class="kpi"><div class="label">Expected units, next 4 weeks</div><div class="value">${esc(compact(fcUnits))}</div><div class="delta">sum of product forecasts</div></div>
-      <div class="kpi ${k.at_risk ? "alert" : ""}"><div class="label">Could run out before restock</div><div class="value">${num(k.at_risk || 0)}</div><div class="delta"><a href="/stock-risk">See stock risk</a></div></div>
+      <div class="kpi ${k.at_risk ? "alert" : ""}"><div class="label">Reorder now</div><div class="value">${num(k.at_risk || 0)}</div><div class="delta">${k.at_risk_busy ? `${num(k.at_risk_busy)} more soon · ` : ""}<a href="/stock-risk">See stock risk</a></div></div>
       <div class="kpi ${k.overstocked ? "warn" : ""}"><div class="label">Overstocked</div><div class="value">${num(k.overstocked || 0)}</div><div class="delta">${k.overstock_value ? esc(DL.moneyShort(k.overstock_value, cur)) + " tied up" : "&nbsp;"}</div></div>
       <div class="kpi"><div class="label">Unusual sales to review</div><div class="value">${num(k.open_anomalies)}</div><div class="delta"><a href="/unusual-sales">Review</a></div></div>
     </section>
@@ -94,7 +95,7 @@
       <div class="why">${esc(a.reason)}</div>
     </li>`).join("") : `<li class="muted">Nothing urgent. Check back after the next analysis.</li>`;
 
-  const LAB = { REORDER_URGENT: "Reorder now", INCREASE_STOCK: "Stock more", INVESTIGATE: "Check unusual sales",
+  const LAB = { REORDER_URGENT: "Reorder now", REORDER_SOON: "Reorder soon", INCREASE_STOCK: "Stock more", INVESTIGATE: "Check unusual sales",
                 REDUCE: "Reduce or clear stock", PAUSE_REORDER: "Pause reordering", REVIEW_RANGE: "Review whether to keep stocking" };
   const order = Object.keys(LAB);
   document.getElementById("actions").innerHTML = DL.table(

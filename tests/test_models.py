@@ -1,3 +1,5 @@
+import pytest
+import math
 """Feature leakage, forecast coherence, risk arithmetic, anomalies and recommendations."""
 import numpy as np
 import pandas as pd
@@ -44,8 +46,20 @@ def test_runout_and_reorder_arithmetic():
     assert days_until(5, np.zeros(4)) is None
     r = assess(20, weekly, weekly * 2, lead_time_days=7, review_days=7, overstock_weeks=12,
                cost_price=2.0, selling_price=3.0)
-    assert r["runout_expected_days"] == 7 + 7 + 3 and r["runout_worst_days"] == 7 + 3     # 14 used by day 14, then 2/day
-    assert r["reorder_qty"] == 28 - 20 and r["overstock_units"] is None
+    assert r["runout_expected_days"] == 7 + 7 + 3                                           # 14 used by day 14, then 2/day
+    # Busy period: P90 of total demand = sum of means + sqrt(sum of squared (P90 - mean)).
+    # Week 1: 7 + 7 = 14. By week 2: 14 + sqrt(7^2 + 7^2) = 14 + 9.90 = 23.90, so week 2 adds 9.90.
+    assert r["runout_worst_days"] == pytest.approx(7 + 6 / (np.sqrt(98) / 7))           # 6 more units at 9.90/7 a day
+    assert r["reorder_qty"] == math.ceil(14 + np.sqrt(98) - 20) and r["overstock_units"] is None   # 23.90 - 20 -> 4
+
+
+def test_busy_period_is_not_every_week_busy():
+    from analytics.risk import busy_period
+    mean, p90 = np.full(4, 30.0), np.full(4, 60.0)
+    steps = np.cumsum(busy_period(mean, p90))
+    assert steps[0] == pytest.approx(60)                          # one week: exactly that week's P90
+    assert steps[2] == pytest.approx(90 + 30 * np.sqrt(3))        # three weeks: square-root rule, not 3 x 60
+    assert np.cumsum(mean)[2] < steps[2] < p90[:3].sum()          # between "average" and "every week busy"
 
 
 def test_weekly_spike_and_drop_rules():
@@ -100,3 +114,30 @@ def test_model_ignores_features_that_never_vary():
     assert set(m.dropped) == {"y_last_year", "rel_price", "category"}
     p50, p90, mean = m.predict(X)
     assert len(p50) == n and (p90 >= p50).all()
+
+
+def test_one_event_raises_one_alarm():
+    from analytics.anomalies import group_events
+    wk = lambda pid, day, actual: (pid, pd.Timestamp(day), actual, 10.0, 6.0, "spike", "moderate")
+    weekly = pd.DataFrame([wk(1, "2026-05-04", 40), wk(1, "2026-05-11", 45), wk(1, "2026-05-18", 38), wk(1, "2026-05-25", 42),
+                           wk(2, "2026-06-08", 90),                              # one week, explained by one big sale
+                           wk(3, "2026-07-06", 50), wk(3, "2026-07-20", 55)],    # not consecutive: two events
+                          columns=["product_id", "week_start", "actual", "expected", "score", "direction", "severity"])
+    tx = pd.DataFrame({"product_id": [2, 1], "movement_id": [7, 8], "actual": [80.0, 30.0], "expected": [3.0, 2.0], "score": [27.0, 15.0],
+                       "occurred_at": pd.to_datetime(["2026-06-10 11:00", "2026-05-13 09:00"])})
+    events, sales = group_events(weekly, tx)
+    surge = events[events.product_id == 1].iloc[0]
+    assert len(events[events.product_id == 1]) == 1 and surge.weeks == 4 and surge.actual == 165
+    assert 2 not in set(events.product_id)                          # reported as the sale instead
+    assert len(events[events.product_id == 3]) == 2
+    assert list(sales.movement_id) == [7]                           # the sale inside the surge is part of the surge
+
+
+def test_reorder_now_versus_soon():
+    cfg = AnalysisConfig()
+    settings = {"default_lead_time_days": 14, "overstock_weeks": 12, "currency": "KES"}
+    base = dict(abc_class="B", reorder_qty=6, velocity_12w=0.6, stock_on_hand=5, lead_time_days=21)
+    soon = recommend(dict(base, runout_worst_days=13, runout_expected_days=66), settings, None, cfg)
+    assert soon[0]["action"] == "REORDER_SOON" and "66 days" in soon[0]["reason"]      # lasts, unless sales are busy
+    now = recommend(dict(base, runout_worst_days=5, runout_expected_days=12), settings, None, cfg)
+    assert now[0]["action"] == "REORDER_URGENT"                                        # runs out before a delivery

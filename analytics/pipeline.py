@@ -248,29 +248,40 @@ def _run(conn, user_id, run_id, cfg, settings, progress, model_dir, started):
     progress("Looking for unusual sales")
     anomaly_eval = {}
     recent_by_pid: dict = {}
+    wk = anom.weekly_anomalies(points, cfg) if not points.empty else pd.DataFrame()
     if not points.empty:
-        wk = anom.weekly_anomalies(points, cfg)
-        anomaly_eval = anom.injection_evaluation(points, cfg)
-        conn.executemany(
-            """INSERT OR IGNORE INTO anomalies (user_id, run_id, product_id, kind, week_start, movement_id, actual, expected,
-                                                   score, direction, severity)
-               VALUES (?, ?, ?, 'weekly_sales', ?, 0, ?, ?, ?, ?, ?)""",
-            [(user_id, run_id, int(r.product_id), str(pd.Timestamp(r.week_start).date()), float(r.actual), float(r.expected),
-              float(r.score), r.direction, r.severity) for r in wk.itertuples()])
+        anomaly_eval = anom.injection_evaluation(points, cfg)      # measures the detector week by week
     since = panel.weeks[t_end] - pd.Timedelta(weeks=cfg.txn_window_weeks - 1)
     sales = mv[(mv["type"] == "SALE") & (mv["occurred_at"] < panel.weeks[t_end] + pd.Timedelta(weeks=1))]
     tx = anom.transaction_anomalies(sales[["movement_id", "product_id", "quantity", "occurred_at"]], since, cfg)
+    wk, tx = anom.group_events(wk, tx)                             # ...but reports one alarm per event
+    # Upsert: a later run may extend an event; the owner's review (status, note) is kept.
     conn.executemany(
-        """INSERT OR IGNORE INTO anomalies (user_id, run_id, product_id, kind, week_start, movement_id, actual, expected,
-                                               score, direction, severity)
-           VALUES (?, ?, ?, 'transaction', ?, ?, ?, ?, ?, 'spike', ?)""",
+        """INSERT INTO anomalies (user_id, run_id, product_id, kind, week_start, movement_id, actual, expected,
+                                  score, direction, severity, weeks)
+           VALUES (?, ?, ?, 'weekly_sales', ?, 0, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (user_id, product_id, kind, week_start, movement_id) DO UPDATE SET
+             run_id=excluded.run_id, actual=excluded.actual, expected=excluded.expected, score=excluded.score,
+             direction=excluded.direction, severity=excluded.severity, weeks=excluded.weeks""",
+        [(user_id, run_id, int(r.product_id), str(pd.Timestamp(r.week_start).date()), float(r.actual), float(r.expected),
+          float(r.score), r.direction, r.severity, int(r.weeks)) for r in wk.itertuples()])
+    conn.executemany(
+        """INSERT INTO anomalies (user_id, run_id, product_id, kind, week_start, movement_id, actual, expected,
+                                  score, direction, severity)
+           VALUES (?, ?, ?, 'transaction', ?, ?, ?, ?, ?, 'spike', ?)
+           ON CONFLICT (user_id, product_id, kind, week_start, movement_id) DO UPDATE SET
+             run_id=excluded.run_id, actual=excluded.actual, expected=excluded.expected, score=excluded.score,
+             severity=excluded.severity""",
         [(user_id, run_id, int(r.product_id), str((r.occurred_at - pd.Timedelta(days=r.occurred_at.weekday())).date()),
           int(r.movement_id), float(r.actual), float(r.expected), float(r.score),
           "high" if r.score >= 50 else "moderate") for r in tx.itertuples()])
+    # Unreviewed flags that this run did not find again are superseded (for example single weeks that
+    # are now part of a longer event); flags the owner confirmed or dismissed are kept as history.
+    conn.execute("DELETE FROM anomalies WHERE user_id=? AND status='open' AND run_id IS NOT ?", (user_id, run_id))
     recent_start = str((panel.weeks[t_end] - pd.Timedelta(weeks=3)).date())
     for a in conn.execute(
-            """SELECT product_id, week_start, actual, expected, direction FROM anomalies
-               WHERE user_id=? AND kind='weekly_sales' AND status!='dismissed' AND severity='high' AND week_start>=?
+            """SELECT product_id, kind, week_start, actual, expected, direction, weeks FROM anomalies
+               WHERE user_id=? AND status!='dismissed' AND severity='high' AND week_start>=?
                ORDER BY week_start""", (user_id, recent_start)):
         recent_by_pid[a["product_id"]] = dict(a)
 

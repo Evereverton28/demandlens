@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block title %}Saves{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>Saves</h1>
+  <p class="lede">Each save holds one dataset and all of its analysis, like a save in a game. Start a new save to work
+    on different data, and load an old one whenever you like: its results come back instantly, without running the
+    analysis again. Anything you change while a save is loaded is kept in that save.</p>
+</header>
+<div class="grid-2e">
+  <section class="panel">
+    <h2>Start a new save</h2>
+    <p class="small muted">Gives you an empty workspace for a different dataset. The save you have loaded now is kept
+      exactly as it is.</p>
+    <div class="form-actions" style="margin-top:12px">
+      <input id="new-name" placeholder="Name, e.g. Pharmacy demo" maxlength="60" style="max-width:280px">
+      <button class="btn" id="new-btn" type="button">Start new save</button>
+      <span class="form-msg" id="new-msg" aria-live="polite"></span>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Loaded now</h2>
+    <div id="current"><p class="loading">Loading…</p></div>
+  </section>
+</div>
+<section class="panel" style="margin-top:20px">
+  <div class="panel-head"><div><h2>All saves</h2>
+    <p>The loaded save cannot be deleted; load a different one first. Deleting a save removes its data and analysis
+      for good.</p></div></div>
+  <div class="table-wrap" id="saves-table"><p class="loading">Loading…</p></div>
+  <p class="form-msg" id="list-msg" aria-live="polite"></p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/saves.js') }}"></script>{% endblock %}

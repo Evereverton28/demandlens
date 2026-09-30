@@ -30,6 +30,9 @@ def init_db(path: str):
     conn = connect(path)
     schema = (Path(__file__).parent / "schema.sql").read_text()
     conn.executescript(schema)
+    # columns added after the first release: add them to databases created before
+    if "weeks" not in {r[1] for r in conn.execute("PRAGMA table_info(anomalies)")}:
+        conn.execute("ALTER TABLE anomalies ADD COLUMN weeks INTEGER NOT NULL DEFAULT 1")
     conn.commit()
     conn.close()
 

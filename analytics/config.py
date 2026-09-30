@@ -46,6 +46,7 @@ class AnalysisConfig:
     anomaly_p90_multiple: float = 2.0 # a spike must reach at least twice a busy (P90) week
     anomaly_high_multiple: float = 5.0  # ... and is "high" severity at five times
     anomaly_min_units: float = 3.0    # ignore deviations smaller than this many units
+    anomaly_sporadic_multiple: float = 3.0  # intermittent/lumpy: 3x the product's bigger selling weeks
     anomaly_min_points: int = 8
     txn_window_weeks: int = 12        # transaction outliers are checked in this recent window
     txn_min_history: int = 10
